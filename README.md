@@ -1,7 +1,5 @@
 # Web Mention Scraper (MERN)
 
-This small MERN-stack application lets you enter a company or individual, triggers a web crawl, and returns:
-
 * A list of recent public mentions across the web (via Google search results)
 * An approximate count of LinkedIn mentions during the past 7 days
 
@@ -40,20 +38,6 @@ Simply open `client/index.html` in your browser, or serve the `client` folder wi
 Enter a search term and hit "Crawl". Results will appear in seconds.
 
 ---
-
-## Project Structure
-
-```
-web-mention-scraper
-├── server         # Express API & scraping logic
-│   ├── crawler.js
-│   ├── index.js
-│   └── package.json
-└── client         # Minimal React frontend (no build step)
-    ├── app.js
-    ├── index.html
-    └── styles.css
-```
 
 ---
 
