@@ -8,12 +8,10 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Health check
 app.get('/', (req, res) => {
   res.send({ message: 'Web mention scraper API is running.' });
 });
 
-// POST /api/crawl { query: 'Microsoft' }
 app.post('/api/crawl', async (req, res) => {
   const { query } = req.body;
   if (!query) {

@@ -1,53 +1,11 @@
-// server/crawler.js
 import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-// Helper to build Google search URL with optional site filter
-function buildSearchUrl(query, { site, lastNDays = 7, num = 20 } = {}) {
-  const tbs = `qdr:d`; // default last 24h; we will handle 7 days with qdr:w (week)
-  const timeRange = lastNDays >= 7 ? 'w' : 'd';
-  const encodedQuery = encodeURIComponent(site ? `${query} site:${site}` : query);
-  return `https://www.google.com/search?q=${encodedQuery}&tbs=qdr:${timeRange}&num=${num}`;
-}
 
-// Parses Google results page to extract result objects and stats
-function parseGoogleResults(html) {
-  const $ = cheerio.load(html);
-  const results = [];
-  
-  // Try multiple selectors for Google results
-  $('div.g, div[data-hveid]').each((_, elem) => {
-    const title = $(elem).find('h3').text() || $(elem).find('[role="heading"]').text();
-    const link = $(elem).find('a').attr('href');
-    const snippet = $(elem).find('div.VwiC3b, div[data-sncf="1"], div.IsZvec').text();
-    if (title && link) {
-      results.push({ title, link, snippet });
-    }
-  });
-
-  // Debug: log what we're getting
-  console.log('Found results:', results.length);
-  
-  // Try multiple selectors for result stats
-  const statsText = $('#result-stats').text() || $('div[id="result-stats"]').text() || '';
-  console.log('Stats text:', statsText);
-  
-  const statsMatch = statsText.match(/([\d,]+)/);
-  const totalResults = statsMatch ? parseInt(statsMatch[1].replace(/,/g, ''), 10) : null;
-  
-  // If no stats found, estimate based on results count
-  if (!totalResults && results.length > 0) {
-    return { results, totalResults: results.length * 10 }; // Rough estimate
-  }
-  
-  return { results, totalResults };
-}
-
-// Alternative: Use DuckDuckGo HTML version (more scraping-friendly)
-async function searchDuckDuckGo(query, site = null) {
+  async function searchDuckDuckGo(query, site = null) {
   const searchQuery = site ? `${query} site:${site}` : query;
   const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`;
   
@@ -108,11 +66,21 @@ async function searchBing(query, site = null) {
       }
     });
     
+    // Try to extract total results count from Bing
+    let totalCount = null;
+    const countText = $('.sb_count').text() || '';
+    const countMatch = countText.match(/([\d,]+)\s+results?/i);
+    if (countMatch) {
+      totalCount = parseInt(countMatch[1].replace(/,/g, ''), 10);
+    }
+    
     console.log(`Bing found ${results.length} results for: ${searchQuery}`);
-    return results;
+    console.log(`Total count from Bing: ${totalCount || 'not found'}`);
+    
+    return { results, totalCount };
   } catch (error) {
     console.error('Bing search failed:', error);
-    return [];
+    return { results: [], totalCount: null };
   }
 }
 
@@ -146,23 +114,28 @@ export async function crawlWeb(query) {
   console.log(`Starting crawl for: ${query}`);
   
   try {
-    // Use Bing as primary search engine (more reliable for scraping)
-    const [bingResults, bingLinkedInResults] = await Promise.all([
+    const [bingData, bingLinkedInData] = await Promise.all([
       searchBing(query),
       searchBing(query, 'linkedin.com')
     ]);
     
-    if (bingResults.length > 0) {
+    if (bingData.results.length > 0) {
+      const linkedInCount = bingLinkedInData.totalCount || 
+                           (bingLinkedInData.results.length > 0 ? bingLinkedInData.results.length * 10 : 0);
+      
       return {
         query,
         timestamp: new Date().toISOString(),
-        last7DaysLinkedInMentions: bingLinkedInResults.length * 10, // Estimate
-        mentions: bingResults.slice(0, 20),
-        source: 'bing'
+        last7DaysLinkedInMentions: linkedInCount,
+        mentions: bingData.results.slice(0, 20),
+        source: 'bing',
+        debug: {
+          linkedInResultsFound: bingLinkedInData.results.length,
+          linkedInTotalCount: bingLinkedInData.totalCount
+        }
       };
     }
     
-    // Fallback to DuckDuckGo if Bing fails
     console.log('Bing returned no results, trying DuckDuckGo...');
     const [ddgResults, ddgLinkedInResults] = await Promise.all([
       searchDuckDuckGo(query),
@@ -173,19 +146,17 @@ export async function crawlWeb(query) {
       return {
         query,
         timestamp: new Date().toISOString(),
-        last7DaysLinkedInMentions: ddgLinkedInResults.length * 10,
+        last7DaysLinkedInMentions: ddgLinkedInResults.length > 0 ? ddgLinkedInResults.length * 10 : 0,
         mentions: ddgResults.slice(0, 20),
         source: 'duckduckgo'
       };
     }
     
-    // Use mock data as final fallback
     console.log('All search engines failed, using mock data for demonstration...');
     return generateMockData(query);
     
   } catch (error) {
     console.error('Crawl failed:', error);
-    // Return mock data on error
     return generateMockData(query);
   }
 } 
