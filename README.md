@@ -71,4 +71,3 @@ None are required. The scraper hits public Google search result pages, so heavy 
 
 ---
 
-MIT License 
