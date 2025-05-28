@@ -36,9 +36,6 @@ $ npm run dev
 
 Simply open `client/index.html` in your browser, or serve the `client` folder with any static file server:
 
-```bash
-$ npx serve ../client
-```
 
 Enter a search term and hit "Crawl". Results will appear in seconds.
 
