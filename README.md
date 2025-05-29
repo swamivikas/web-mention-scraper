@@ -17,17 +17,18 @@ $ git clone https://github.com/<your-user>/web-mention-scraper.git
 $ cd web-mention-scraper
 
 # install backend deps
-$ cd server && npm install
+ cd server && npm install
 ```
 
 (Frontend is dependency-free – it just uses the React CDN.)
 
 ### 2. Run the backend
 
-```bash
-# still inside /server
-$ npm run dev
-# → server available on http://localhost:5000
+```
+cd server
+npm install
+npm run dev
+
 ```
 
 ### 3. Open the UI
